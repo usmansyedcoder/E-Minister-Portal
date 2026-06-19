@@ -14,10 +14,15 @@ const startServer = async () => {
     await connectDB();
     console.log("✅ Database connected successfully");
 
-    // Middleware
+    // Middleware - Updated CORS
     app.use(
       cors({
-        origin: ["http://localhost:3000", "http://localhost:5173"],
+        origin: [
+          "http://localhost:3000",
+          "http://localhost:5173",
+          "https://e-minister-portal-co1oy0dyq-muhammad-usmans-projects-be41f176.vercel.app",
+          "https://e-minister-portal.vercel.app", // Add your custom domain if you have one
+        ],
         credentials: true,
       }),
     );
