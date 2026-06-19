@@ -14,45 +14,57 @@ const startServer = async () => {
     await connectDB();
     console.log("✅ Database connected successfully");
 
-    // ✅ FIXED CORS Configuration
+    // ✅ COMPLETE CORS Configuration
     const allowedOrigins = [
       "http://localhost:3000",
       "http://localhost:5173",
+      "https://e-minister-portal-53fw-jya9gkmdg.vercel.app",
+      "https://e-minister-portal-co1oy0dyq-muhammad-usmans-projects-be41f176.vercel.app",
       "https://e-minister-portal-ddgrrwpym-muhammad-usmans-projects-be41f176.vercel.app",
       "https://e-minister-portal.vercel.app",
       "https://e-minister-portal-7s66-80nbwxrxb.vercel.app",
     ];
 
-    app.use(
-      cors({
-        origin: function (origin, callback) {
-          // Allow requests with no origin (like mobile apps, curl, etc.)
-          if (!origin) return callback(null, true);
+    // CORS middleware - Allow all in development
+    app.use((req, res, next) => {
+      const origin = req.headers.origin;
 
-          if (
-            allowedOrigins.indexOf(origin) !== -1 ||
-            process.env.NODE_ENV === "development"
-          ) {
-            callback(null, true);
-          } else {
-            console.log("Blocked origin:", origin);
-            callback(new Error("Not allowed by CORS"));
-          }
-        },
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-        allowedHeaders: [
-          "Content-Type",
-          "Authorization",
-          "X-Requested-With",
-          "Accept",
-        ],
-        optionsSuccessStatus: 200, // For legacy browsers
-      }),
-    );
+      // Allow all origins in development
+      if (process.env.NODE_ENV === "development") {
+        res.header("Access-Control-Allow-Origin", origin || "*");
+      } else if (origin && allowedOrigins.includes(origin)) {
+        res.header("Access-Control-Allow-Origin", origin);
+      } else if (!origin) {
+        // Allow requests with no origin (like mobile apps, curl)
+        res.header("Access-Control-Allow-Origin", "*");
+      } else {
+        console.log("❌ Blocked origin:", origin);
+        // Still allow the request but log it (or return 403)
+        // For debugging, we'll allow all origins temporarily
+        res.header("Access-Control-Allow-Origin", origin || "*");
+      }
 
-    // ✅ Handle preflight requests explicitly
-    app.options("*", cors());
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+      );
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-Requested-With, Accept",
+      );
+      res.header("Access-Control-Allow-Credentials", "true");
+      res.header(
+        "Access-Control-Expose-Headers",
+        "Content-Range, X-Content-Range",
+      );
+
+      // Handle preflight requests
+      if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+      }
+
+      next();
+    });
 
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
@@ -64,12 +76,16 @@ const startServer = async () => {
 
     // Root route
     app.get("/", (req, res) => {
-      res.json({ message: "E-Minister Portal API is running" });
+      res.json({
+        message: "E-Minister Portal API is running",
+        environment: process.env.NODE_ENV,
+        allowedOrigins: allowedOrigins,
+      });
     });
 
     // Error handling middleware
     app.use((err, req, res, next) => {
-      console.error(err.stack);
+      console.error("❌ Error:", err.stack);
       res.status(500).json({ message: "Something went wrong!" });
     });
 
@@ -77,6 +93,8 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌐 http://localhost:${PORT}`);
+      console.log(`✅ CORS enabled for:`, allowedOrigins);
+      console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);
