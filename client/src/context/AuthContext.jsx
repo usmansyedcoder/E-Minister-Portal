@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
 
   // 🔥 FIX: Use environment variable for API URL
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   // Set axios default header
   if (token) {
@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await axios.post(`${API_URL}/auth/login`, {
+      const res = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password,
       });
