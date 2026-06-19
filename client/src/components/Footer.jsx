@@ -80,9 +80,9 @@ const Footer = () => {
                 <li>
                   <Link to="/how-to-file-complaint">How to File Complaint</Link>
                 </li>
-                {/* <li>
+                <li>
                   <Link to="/complaint-status">Complaint Status</Link>
-                </li> */}
+                </li>
                 <li>
                   <Link to="/guidelines">Guidelines</Link>
                 </li>
