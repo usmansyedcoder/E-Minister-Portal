@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem("token"));
 
-  // ✅ FIXED: Remove /api from base URL
+  // ✅ API_URL should NOT include /api at the end
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   // Set axios default header
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        // ✅ Add /api/ to the path
+        // ✅ Add /api/ in the path
         const res = await axios.get(`${API_URL}/api/auth/me`);
         setUser(res.data.user);
       } catch (error) {
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // ✅ Add /api/ to the path
+      // ✅ Add /api/ in the path
       const res = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password,
