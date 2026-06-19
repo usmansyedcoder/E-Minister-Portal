@@ -8,57 +8,57 @@ dotenv.config();
 
 const app = express();
 
-// Connect to database with retry logic
+// ✅ VERCEL OPTIMIZED CORS - MUST COME FIRST
+app.use((req, res, next) => {
+  // Get the origin from the request
+  const origin = req.headers.origin;
+
+  // Allow all origins for now (since we're debugging)
+  // In production, restrict to specific origins
+  const allowedOrigins = [
+    "https://e-minister-portal.vercel.app",
+    "https://e-minister-portal-53fw-3dkih3dlk.vercel.app",
+    "https://e-minister-portal-53fw-jya9gkmdg.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+
+  // Allow the request if origin is in our list or if it's a same-origin request
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else if (origin) {
+    // For debugging - allow all origins
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
+  // Set other CORS headers
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept",
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    console.log("✅ OPTIONS request handled for:", origin);
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
+// Connect to database
 const startServer = async () => {
   try {
     await connectDB();
     console.log("✅ Database connected successfully");
-
-    // ✅ Updated CORS Configuration
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "https://e-minister-portal.vercel.app",
-      "https://e-minister-portal-53fw-3dkih3dlk.vercel.app",
-      "https://e-minister-portal-53fw-jya9gkmdg.vercel.app",
-      "https://e-minister-portal-co1oy0dyq-muhammad-usmans-projects-be41f176.vercel.app",
-      "https://e-minister-portal-ddgrrwpym-muhammad-usmans-projects-be41f176.vercel.app",
-    ];
-
-    // ✅ CORS middleware
-    app.use((req, res, next) => {
-      const origin = req.headers.origin;
-
-      // Allow all origins in development
-      if (process.env.NODE_ENV === "development") {
-        res.header("Access-Control-Allow-Origin", origin || "*");
-      } else if (origin && allowedOrigins.includes(origin)) {
-        res.header("Access-Control-Allow-Origin", origin);
-      } else if (!origin) {
-        res.header("Access-Control-Allow-Origin", "*");
-      } else {
-        console.log("❌ Blocked origin:", origin);
-        // For debugging, allow all
-        res.header("Access-Control-Allow-Origin", origin || "*");
-      }
-
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-      );
-      res.header(
-        "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, X-Requested-With, Accept",
-      );
-      res.header("Access-Control-Allow-Credentials", "true");
-
-      // Handle preflight
-      if (req.method === "OPTIONS") {
-        return res.sendStatus(200);
-      }
-
-      next();
-    });
 
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
@@ -73,6 +73,7 @@ const startServer = async () => {
       res.json({
         message: "E-Minister Portal API is running",
         environment: process.env.NODE_ENV,
+        cors: "enabled",
       });
     });
 
@@ -86,7 +87,6 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌐 http://localhost:${PORT}`);
-      console.log(`✅ CORS enabled for:`, allowedOrigins);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);
