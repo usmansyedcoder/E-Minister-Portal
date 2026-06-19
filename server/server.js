@@ -14,18 +14,46 @@ const startServer = async () => {
     await connectDB();
     console.log("✅ Database connected successfully");
 
-    // Middleware - Updated CORS
+    // ✅ FIXED CORS Configuration
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://e-minister-portal-ddgrrwpym-muhammad-usmans-projects-be41f176.vercel.app",
+      "https://e-minister-portal.vercel.app",
+      "https://e-minister-portal-7s66-80nbwxrxb.vercel.app",
+    ];
+
     app.use(
       cors({
-        origin: [
-          "http://localhost:3000",
-          "http://localhost:5173",
-          "https://e-minister-portal-co1oy0dyq-muhammad-usmans-projects-be41f176.vercel.app",
-          "https://e-minister-portal.vercel.app", // Add your custom domain if you have one
-        ],
+        origin: function (origin, callback) {
+          // Allow requests with no origin (like mobile apps, curl, etc.)
+          if (!origin) return callback(null, true);
+
+          if (
+            allowedOrigins.indexOf(origin) !== -1 ||
+            process.env.NODE_ENV === "development"
+          ) {
+            callback(null, true);
+          } else {
+            console.log("Blocked origin:", origin);
+            callback(new Error("Not allowed by CORS"));
+          }
+        },
         credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowedHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Requested-With",
+          "Accept",
+        ],
+        optionsSuccessStatus: 200, // For legacy browsers
       }),
     );
+
+    // ✅ Handle preflight requests explicitly
+    app.options("*", cors());
+
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
