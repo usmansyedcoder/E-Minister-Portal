@@ -11,13 +11,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem("token"));
 
+  // 🔥 FIX: Use environment variable for API URL
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
   // Set axios default header
   if (token) {
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   }
-
-  // Use relative URL with Vite proxy
-  const API_URL = "/api";
 
   useEffect(() => {
     const loadUser = async () => {
