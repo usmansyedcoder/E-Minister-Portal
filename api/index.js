@@ -1,6 +1,6 @@
-// This is the ONLY API file you need
+// This single file handles ALL API routes
 module.exports = async (req, res) => {
-  // ✅ CORS headers
+  // Set CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  // Parse URL
+  // Get the path
   const url = req.url;
   console.log(`📥 ${req.method} ${url}`);
 
@@ -29,44 +29,44 @@ module.exports = async (req, res) => {
   }
 
   // ============================================
-  // COMPLAINTS
+  // COMPLAINTS - POST /api/complaints
   // ============================================
   if (url === "/api/complaints" || url === "/complaints") {
     if (req.method === "POST") {
       try {
         console.log("📥 Creating complaint:", req.body);
 
+        // Generate tracking ID
+        const generateTrackingId = (prefix) => {
+          const timestamp = Date.now().toString(36).toUpperCase();
+          const random = Math.random()
+            .toString(36)
+            .substring(2, 6)
+            .toUpperCase();
+          return `${prefix}-${timestamp}-${random}`;
+        };
+
         // Try MongoDB first
         try {
           const mongoose = require("mongoose");
           const Complaint = require("../server/models/Complaint");
 
-          // Connect to MongoDB
+          // Connect if not connected
           if (mongoose.connection.readyState === 0) {
             await mongoose.connect(process.env.MONGODB_URI, {
               useNewUrlParser: true,
               useUnifiedTopology: true,
               serverSelectionTimeoutMS: 5000,
             });
-            console.log("✅ MongoDB connected");
           }
 
           const complaint = await Complaint.create(req.body);
           console.log("✅ Complaint created:", complaint.trackingId);
           return res.status(201).json({ success: true, data: complaint });
         } catch (dbError) {
-          console.log("⚠️ MongoDB error, using in-memory:", dbError.message);
+          console.log("⚠️ MongoDB error, using in-memory");
 
           // Fallback to in-memory
-          const generateTrackingId = (prefix) => {
-            const timestamp = Date.now().toString(36).toUpperCase();
-            const random = Math.random()
-              .toString(36)
-              .substring(2, 6)
-              .toUpperCase();
-            return `${prefix}-${timestamp}-${random}`;
-          };
-
           const complaint = {
             ...req.body,
             trackingId: generateTrackingId("CMP"),
@@ -75,7 +75,6 @@ module.exports = async (req, res) => {
             updatedAt: new Date(),
           };
 
-          // Store in global
           if (!global.complaints) global.complaints = [];
           global.complaints.push(complaint);
 
@@ -118,12 +117,21 @@ module.exports = async (req, res) => {
   }
 
   // ============================================
-  // SUGGESTIONS
+  // SUGGESTIONS - POST /api/suggestions
   // ============================================
   if (url === "/api/suggestions" || url === "/suggestions") {
     if (req.method === "POST") {
       try {
         console.log("📥 Creating suggestion:", req.body);
+
+        const generateTrackingId = (prefix) => {
+          const timestamp = Date.now().toString(36).toUpperCase();
+          const random = Math.random()
+            .toString(36)
+            .substring(2, 6)
+            .toUpperCase();
+          return `${prefix}-${timestamp}-${random}`;
+        };
 
         try {
           const mongoose = require("mongoose");
@@ -141,16 +149,7 @@ module.exports = async (req, res) => {
           console.log("✅ Suggestion created:", suggestion.trackingId);
           return res.status(201).json({ success: true, data: suggestion });
         } catch (dbError) {
-          console.log("⚠️ MongoDB error, using in-memory:", dbError.message);
-
-          const generateTrackingId = (prefix) => {
-            const timestamp = Date.now().toString(36).toUpperCase();
-            const random = Math.random()
-              .toString(36)
-              .substring(2, 6)
-              .toUpperCase();
-            return `${prefix}-${timestamp}-${random}`;
-          };
+          console.log("⚠️ MongoDB error, using in-memory");
 
           const suggestion = {
             ...req.body,
@@ -202,13 +201,14 @@ module.exports = async (req, res) => {
   }
 
   // ============================================
-  // TRACK COMPLAINT/SUGGESTION
+  // TRACK - GET /api/track?id=XXX
   // ============================================
   if (url.startsWith("/api/track") || url.startsWith("/track")) {
     if (req.method === "GET") {
       try {
-        // Extract tracking ID from query parameter
-        const trackingId = req.query?.id?.toUpperCase();
+        // Parse query string
+        const urlParams = new URLSearchParams(url.split("?")[1] || "");
+        const trackingId = urlParams.get("id")?.toUpperCase();
 
         if (!trackingId) {
           return res
@@ -216,7 +216,7 @@ module.exports = async (req, res) => {
             .json({ success: false, message: "Tracking ID is required" });
         }
 
-        console.log("🔍 Tracking ID:", trackingId);
+        console.log("🔍 Searching for:", trackingId);
 
         // Check if it's a complaint or suggestion
         const isComplaint = trackingId.startsWith("CMP");
@@ -228,6 +228,7 @@ module.exports = async (req, res) => {
             .json({ success: false, message: "Invalid tracking ID format" });
         }
 
+        // Try MongoDB first
         try {
           const mongoose = require("mongoose");
 
@@ -261,33 +262,31 @@ module.exports = async (req, res) => {
             }
           }
         } catch (dbError) {
-          console.log("⚠️ MongoDB error, checking in-memory:", dbError.message);
+          console.log("⚠️ MongoDB error, checking in-memory");
+        }
 
-          // Check in-memory
-          if (isComplaint) {
-            const complaints = global.complaints || [];
-            const complaint = complaints.find(
-              (c) => c.trackingId === trackingId,
-            );
-            if (complaint) {
-              return res.json({
-                success: true,
-                type: "complaint",
-                data: complaint,
-              });
-            }
-          } else if (isSuggestion) {
-            const suggestions = global.suggestions || [];
-            const suggestion = suggestions.find(
-              (s) => s.trackingId === trackingId,
-            );
-            if (suggestion) {
-              return res.json({
-                success: true,
-                type: "suggestion",
-                data: suggestion,
-              });
-            }
+        // Check in-memory
+        if (isComplaint) {
+          const complaints = global.complaints || [];
+          const complaint = complaints.find((c) => c.trackingId === trackingId);
+          if (complaint) {
+            return res.json({
+              success: true,
+              type: "complaint",
+              data: complaint,
+            });
+          }
+        } else if (isSuggestion) {
+          const suggestions = global.suggestions || [];
+          const suggestion = suggestions.find(
+            (s) => s.trackingId === trackingId,
+          );
+          if (suggestion) {
+            return res.json({
+              success: true,
+              type: "suggestion",
+              data: suggestion,
+            });
           }
         }
 

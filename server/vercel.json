@@ -2,34 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/*.js",
+      "src": "../api/index.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/health",
-      "dest": "api/health.js"
-    },
-    {
-      "src": "/api/complaints",
-      "dest": "api/complaints.js"
-    },
-    {
-      "src": "/api/suggestions",
-      "dest": "api/suggestions.js"
-    },
-    {
-      "src": "/api/complaints/track/(.*)",
-      "dest": "api/complaints-track-[id].js"
-    },
-    {
-      "src": "/api/suggestions/track/(.*)",
-      "dest": "api/suggestions-track-[id].js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "api/complaints.js"
+      "src": "/api/(.*)",
+      "dest": "../api/index.js"
     }
   ]
 }
