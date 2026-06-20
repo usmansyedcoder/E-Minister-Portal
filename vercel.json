@@ -2,29 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/server.js",
+      "src": "server/api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "client/dist/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server/server.js"
+      "dest": "server/api/index.js"
     },
     {
       "src": "/(.*)",
-      "dest": "server/server.js"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, PATCH, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-Requested-With, Accept" },
-        { "key": "Access-Control-Allow-Credentials", "value": "true" }
-      ]
+      "dest": "client/dist/index.html"
     }
   ]
 }

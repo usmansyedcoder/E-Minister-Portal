@@ -70,18 +70,19 @@ const SubmitComplaint = () => {
   // const API_URL = import.meta.env.VITE_API_URL || "/api";
 
   // In handleSubmit, use just '/api' for the path
+  // In your handleSubmit function, use relative URL
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // ✅ Use relative path - no API_URL needed
       const response = await axios.post("/api/complaints", formData);
       const trackingId = response.data.data.trackingId;
 
       toast.success(`✅ Complaint submitted successfully!`);
       toast.info(`📋 Your Tracking ID: ${trackingId}`);
 
-      // Navigate to status page with tracking ID
       navigate(`/complaint-status?tracking=${trackingId}`);
     } catch (error) {
       console.error("Submission error:", error);

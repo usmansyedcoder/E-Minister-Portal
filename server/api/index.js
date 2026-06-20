@@ -1,6 +1,6 @@
-// This is the entry point for Vercel serverless functions
 const express = require("express");
 const cors = require("cors");
+const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 
 // Load env vars
@@ -23,7 +23,7 @@ app.use(
   }),
 );
 
-// ✅ Handle OPTIONS preflight
+// ✅ Handle OPTIONS preflight explicitly
 app.options("*", (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header(
@@ -38,61 +38,46 @@ app.options("*", (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Import models and connect to DB
-const mongoose = require("mongoose");
+// ✅ MongoDB Connection with caching for serverless
+let cachedDb = null;
 
-// Global connection cache
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
-
-async function connectDB() {
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  if (!cached.promise) {
-    const opts = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
-      family: 4,
-    };
-
-    cached.promise = mongoose
-      .connect(process.env.MONGODB_URI, opts)
-      .then((mongoose) => {
-        console.log("✅ MongoDB connected");
-        return mongoose;
-      })
-      .catch((err) => {
-        console.error("❌ MongoDB connection error:", err);
-        throw err;
-      });
+async function connectToDatabase() {
+  if (cachedDb) {
+    console.log("📦 Using cached database connection");
+    return cachedDb;
   }
 
   try {
-    cached.conn = await cached.promise;
-  } catch (e) {
-    cached.promise = null;
-    throw e;
-  }
+    console.log("🔄 Connecting to MongoDB...");
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4,
+    });
 
-  return cached.conn;
+    cachedDb = conn;
+    console.log("✅ MongoDB connected successfully");
+    return conn;
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error);
+    throw error;
+  }
 }
 
-// ✅ Import route handlers
+// ✅ Import models
 const User = require("../models/User");
 const Complaint = require("../models/Complaint");
 const Suggestion = require("../models/Suggestion");
 
-// ✅ Auth routes
+// ============================================
+// AUTH ROUTES
+// ============================================
+
 app.post("/api/auth/login", async (req, res) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
@@ -128,7 +113,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/auth/me", async (req, res) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Not authorized" });
@@ -149,11 +134,14 @@ app.get("/api/auth/me", async (req, res) => {
   }
 });
 
-// ✅ Complaint routes
+// ============================================
+// COMPLAINT ROUTES
+// ============================================
+
 app.post("/api/complaints", async (req, res) => {
   try {
-    await connectDB();
-    console.log("📥 Received complaint:", req.body);
+    await connectToDatabase();
+    console.log("📥 Creating complaint:", req.body);
 
     const complaint = await Complaint.create(req.body);
     console.log("✅ Complaint created:", complaint.trackingId);
@@ -173,7 +161,7 @@ app.post("/api/complaints", async (req, res) => {
 
 app.get("/api/complaints", async (req, res) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     const complaints = await Complaint.find().sort({ createdAt: -1 });
     res.json({
       success: true,
@@ -188,7 +176,7 @@ app.get("/api/complaints", async (req, res) => {
 
 app.get("/api/complaints/track/:trackingId", async (req, res) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     const complaint = await Complaint.findOne({
       trackingId: req.params.trackingId.toUpperCase(),
     });
@@ -219,11 +207,14 @@ app.get("/api/complaints/track/:trackingId", async (req, res) => {
   }
 });
 
-// ✅ Suggestion routes
+// ============================================
+// SUGGESTION ROUTES
+// ============================================
+
 app.post("/api/suggestions", async (req, res) => {
   try {
-    await connectDB();
-    console.log("📥 Received suggestion:", req.body);
+    await connectToDatabase();
+    console.log("📥 Creating suggestion:", req.body);
 
     const suggestion = await Suggestion.create(req.body);
     console.log("✅ Suggestion created:", suggestion.trackingId);
@@ -243,7 +234,7 @@ app.post("/api/suggestions", async (req, res) => {
 
 app.get("/api/suggestions", async (req, res) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     const suggestions = await Suggestion.find().sort({ createdAt: -1 });
     res.json({
       success: true,
@@ -258,7 +249,7 @@ app.get("/api/suggestions", async (req, res) => {
 
 app.get("/api/suggestions/track/:trackingId", async (req, res) => {
   try {
-    await connectDB();
+    await connectToDatabase();
     const suggestion = await Suggestion.findOne({
       trackingId: req.params.trackingId.toUpperCase(),
     });
@@ -289,7 +280,10 @@ app.get("/api/suggestions/track/:trackingId", async (req, res) => {
   }
 });
 
-// ✅ Health check
+// ============================================
+// HEALTH CHECK
+// ============================================
+
 app.get("/api/health", (req, res) => {
   res.json({
     success: true,
@@ -299,7 +293,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ✅ Root route
 app.get("/", (req, res) => {
   res.json({
     success: true,
