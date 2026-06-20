@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
+import API_BASE_URL from "../config/api";
+
 import { toast } from "react-toastify";
 
 const ComplaintStatus = () => {
@@ -50,8 +52,9 @@ const ComplaintStatus = () => {
         // Try suggestions
         try {
           const response = await axios.get(
-            `/api/suggestions/track/${trackingId.trim()}`,
+            `${API_BASE_URL}/complaints/track/${trackingId.trim()}`,
           );
+
           setResult({
             type: "suggestion",
             data: response.data.data,
