@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import API_BASE_URL from "../config/api";
 
 const SubmitSuggestion = () => {
   const navigate = useNavigate();
-  const API_URL = "/api";
   const [formData, setFormData] = useState({
     citizenName: "",
     email: "",
@@ -73,13 +73,16 @@ const SubmitSuggestion = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("/api/suggestions", formData);
+      const response = await axios.post(
+        `${API_BASE_URL}/suggestions`,
+        formData,
+      );
       const trackingId = response.data.data.trackingId;
 
       toast.success(`✅ Suggestion submitted successfully!`);
       toast.info(`📋 Your Tracking ID: ${trackingId}`);
 
-      navigate(`/complaint-status?tracking=${trackingId}`);
+      navigate(`/suggestion-status?tracking=${trackingId}`);
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import API_BASE_URL from "../config/api";
 
 const SubmitComplaint = () => {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ const SubmitComplaint = () => {
         ? "https://e-minister-portal.vercel.app/api/complaints" // Your production URL
         : "/api/complaints";
 
-      const response = await axios.post(apiUrl, formData);
+      const response = await axios.post(`${API_BASE_URL}/complaints`, formData);
       const trackingId = response.data.data.trackingId;
 
       toast.success(`✅ Complaint submitted successfully!`);
