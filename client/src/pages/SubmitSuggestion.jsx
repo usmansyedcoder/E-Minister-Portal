@@ -82,7 +82,7 @@ const SubmitSuggestion = () => {
       toast.success(`✅ Suggestion submitted successfully!`);
       toast.info(`📋 Your Tracking ID: ${trackingId}`);
 
-      navigate(`/suggestion-status?tracking=${trackingId}`);
+      navigate(`/complaint-status?tracking=${trackingId}`);
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(

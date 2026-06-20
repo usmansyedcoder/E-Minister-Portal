@@ -24,7 +24,6 @@ const ComplaintStatus = () => {
       return () => clearTimeout(timer);
     }
   }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!trackingId.trim()) {
@@ -37,38 +36,21 @@ const ComplaintStatus = () => {
     setResult(null);
 
     try {
-      // Try complaints first
-      let response = await axios.get(
-        `/api/complaints/track/${trackingId.trim()}`,
+      const response = await axios.get(
+        `${API_BASE_URL}/track?id=${trackingId.trim()}`,
       );
 
-      setResult({
-        type: "complaint",
-        data: response.data.data,
-      });
-      toast.success("Complaint found!");
+      if (response.data.success) {
+        setResult({
+          type: response.data.type,
+          data: response.data.data,
+        });
+        toast.success(`${response.data.type} found!`);
+      }
     } catch (err) {
       if (err.response?.status === 404) {
-        // Try suggestions
-        try {
-          const response = await axios.get(
-            `${API_BASE_URL}/complaints/track/${trackingId.trim()}`,
-          );
-
-          setResult({
-            type: "suggestion",
-            data: response.data.data,
-          });
-          toast.success("Suggestion found!");
-        } catch (suggErr) {
-          if (suggErr.response?.status === 404) {
-            setError("No complaint or suggestion found with this tracking ID");
-            toast.error("Tracking ID not found");
-          } else {
-            setError("Error fetching status. Please try again.");
-            toast.error("Error fetching status");
-          }
-        }
+        setError("No complaint or suggestion found with this tracking ID");
+        toast.error("Tracking ID not found");
       } else {
         setError("Error fetching status. Please try again.");
         toast.error("Error fetching status");

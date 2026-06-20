@@ -77,11 +77,6 @@ const SubmitComplaint = () => {
     setLoading(true);
 
     try {
-      // Use absolute URL in production, relative in development
-      const apiUrl = import.meta.env.PROD
-        ? "https://e-minister-portal.vercel.app/api/complaints" // Your production URL
-        : "/api/complaints";
-
       const response = await axios.post(`${API_BASE_URL}/complaints`, formData);
       const trackingId = response.data.data.trackingId;
 
