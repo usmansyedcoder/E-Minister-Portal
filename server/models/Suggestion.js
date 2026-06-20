@@ -1,6 +1,19 @@
 const mongoose = require("mongoose");
 
+// Generate tracking ID
+const generateTrackingId = () => {
+  const prefix = "SUG";
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix}-${timestamp}-${random}`;
+};
+
 const suggestionSchema = new mongoose.Schema({
+  trackingId: {
+    type: String,
+    unique: true,
+    default: generateTrackingId,
+  },
   citizenName: {
     type: String,
     required: true,
@@ -52,6 +65,9 @@ const suggestionSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  resolvedDate: {
+    type: Date,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -60,6 +76,12 @@ const suggestionSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// Update the updatedAt timestamp on save
+suggestionSchema.pre("save", function (next) {
+  this.updatedAt = Date.now();
+  next();
 });
 
 module.exports = mongoose.model("Suggestion", suggestionSchema);

@@ -63,15 +63,20 @@ const SubmitSuggestion = () => {
       [e.target.name]: e.target.value,
     });
   };
-
+  // Update the handleSubmit function in SubmitSuggestion.jsx
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await axios.post(`${API_URL}/suggestions`, formData);
-      toast.success("✅ Suggestion submitted successfully!");
-      navigate("/");
+      const response = await axios.post(`${API_URL}/suggestions`, formData);
+      const trackingId = response.data.data.trackingId;
+
+      toast.success(`✅ Suggestion submitted successfully!`);
+      toast.info(`📋 Your Tracking ID: ${trackingId}`);
+
+      // Navigate to status page with tracking ID
+      navigate(`/complaint-status?tracking=${trackingId}`);
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Failed to submit suggestion",

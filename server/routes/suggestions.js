@@ -63,7 +63,42 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+// Get suggestion by tracking ID (Public - for citizens to check status)
+router.get("/track/:trackingId", async (req, res) => {
+  try {
+    const suggestion = await Suggestion.findOne({
+      trackingId: req.params.trackingId.toUpperCase(),
+    });
 
+    if (!suggestion) {
+      return res.status(404).json({
+        success: false,
+        message: "Suggestion not found with this tracking ID",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        trackingId: suggestion.trackingId,
+        citizenName: suggestion.citizenName,
+        subject: suggestion.subject,
+        category: suggestion.category,
+        status: suggestion.status,
+        ministerRemarks: suggestion.ministerRemarks,
+        createdAt: suggestion.createdAt,
+        updatedAt: suggestion.updatedAt,
+        resolvedDate: suggestion.resolvedDate,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
 // Update suggestion status (Minister only)
 router.put("/:id/status", protect, ministerOnly, async (req, res) => {
   try {

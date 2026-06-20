@@ -65,14 +65,20 @@ const SubmitComplaint = () => {
     });
   };
 
+  // Update the handleSubmit function in SubmitComplaint.jsx
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await axios.post(`${API_URL}/complaints`, formData);
-      toast.success("✅ Complaint submitted successfully!");
-      navigate("/");
+      const response = await axios.post(`${API_URL}/complaints`, formData);
+      const trackingId = response.data.data.trackingId;
+
+      toast.success(`✅ Complaint submitted successfully!`);
+      toast.info(`📋 Your Tracking ID: ${trackingId}`);
+
+      // Navigate to status page with tracking ID
+      navigate(`/complaint-status?tracking=${trackingId}`);
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Failed to submit complaint",

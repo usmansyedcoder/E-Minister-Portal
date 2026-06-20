@@ -63,7 +63,43 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+// Add this route to complaints.js
+// Get complaint by tracking ID (Public - for citizens to check status)
+router.get("/track/:trackingId", async (req, res) => {
+  try {
+    const complaint = await Complaint.findOne({
+      trackingId: req.params.trackingId.toUpperCase(),
+    });
 
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found with this tracking ID",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        trackingId: complaint.trackingId,
+        citizenName: complaint.citizenName,
+        subject: complaint.subject,
+        category: complaint.category,
+        status: complaint.status,
+        ministerRemarks: complaint.ministerRemarks,
+        createdAt: complaint.createdAt,
+        updatedAt: complaint.updatedAt,
+        resolvedDate: complaint.resolvedDate,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
 // Update complaint status (Minister only)
 router.put("/:id/status", protect, ministerOnly, async (req, res) => {
   try {

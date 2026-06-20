@@ -1,6 +1,19 @@
 const mongoose = require("mongoose");
 
+// Generate tracking ID
+const generateTrackingId = () => {
+  const prefix = "CMP";
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix}-${timestamp}-${random}`;
+};
+
 const complaintSchema = new mongoose.Schema({
+  trackingId: {
+    type: String,
+    unique: true,
+    default: generateTrackingId,
+  },
   citizenName: {
     type: String,
     required: true,
@@ -56,6 +69,9 @@ const complaintSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  resolvedDate: {
+    type: Date,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -64,6 +80,12 @@ const complaintSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+});
+
+// Update the updatedAt timestamp on save
+complaintSchema.pre("save", function (next) {
+  this.updatedAt = Date.now();
+  next();
 });
 
 module.exports = mongoose.model("Complaint", complaintSchema);
