@@ -3,10 +3,17 @@
   "builds": [
     {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["config/**", "models/**", "middleware/**", "routes/**"]
+      }
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server.js"
+    },
     {
       "src": "/(.*)",
       "dest": "server.js"
@@ -17,12 +24,16 @@
       "source": "/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,PATCH,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, PATCH, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, X-Requested-With, Accept" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" }
       ]
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "MONGODB_URI": "@mongodb_uri",
+    "JWT_SECRET": "@jwt_secret",
+    "JWT_EXPIRE": "30d"
   }
 }

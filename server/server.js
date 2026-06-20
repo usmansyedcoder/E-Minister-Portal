@@ -8,90 +8,97 @@ dotenv.config();
 
 const app = express();
 
-// ✅ VERCEL OPTIMIZED CORS - MUST COME FIRST
-app.use((req, res, next) => {
-  // Get the origin from the request
-  const origin = req.headers.origin;
+// ✅ CORS configuration
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+    ],
+  }),
+);
 
-  // Allow all origins for now (since we're debugging)
-  // In production, restrict to specific origins
-  const allowedOrigins = [
-    "https://e-minister-portal.vercel.app",
-    "https://e-minister-portal-53fw-3dkih3dlk.vercel.app",
-    "https://e-minister-portal-53fw-jya9gkmdg.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ];
+// ✅ Handle preflight requests
+app.options("*", cors());
 
-  // Allow the request if origin is in our list or if it's a same-origin request
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else if (origin) {
-    // For debugging - allow all origins
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  }
+// Connect to database (for serverless, don't block on connection)
+let isConnected = false;
 
-  // Set other CORS headers
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, Accept",
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
-
-  // Handle preflight requests
-  if (req.method === "OPTIONS") {
-    console.log("✅ OPTIONS request handled for:", origin);
-    return res.sendStatus(200);
-  }
-
-  next();
-});
-
-// Connect to database
-const startServer = async () => {
+const connectToDatabase = async () => {
+  if (isConnected) return;
   try {
     await connectDB();
+    isConnected = true;
     console.log("✅ Database connected successfully");
+  } catch (error) {
+    console.error("❌ Database connection error:", error);
+  }
+};
 
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
+// ✅ Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-    // Routes
-    app.use("/api/auth", require("./routes/auth"));
-    app.use("/api/complaints", require("./routes/complaints"));
-    app.use("/api/suggestions", require("./routes/suggestions"));
+// ✅ Health check route
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "E-Minister Portal API is running",
+    environment: process.env.NODE_ENV,
+  });
+});
 
-    // Root route
-    app.get("/", (req, res) => {
-      res.json({
-        message: "E-Minister Portal API is running",
-        environment: process.env.NODE_ENV,
-        cors: "enabled",
-      });
-    });
+// ✅ Routes
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/complaints", require("./routes/complaints"));
+app.use("/api/suggestions", require("./routes/suggestions"));
 
-    // Error handling middleware
-    app.use((err, req, res, next) => {
-      console.error("❌ Error:", err.stack);
-      res.status(500).json({ message: "Something went wrong!" });
-    });
+// ✅ Root route
+app.get("/", (req, res) => {
+  res.json({
+    message: "E-Minister Portal API is running",
+    environment: process.env.NODE_ENV,
+    cors: "enabled",
+  });
+});
 
-    const PORT = process.env.PORT || 5000;
+// ✅ 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.method} ${req.url} not found`,
+  });
+});
+
+// ✅ Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("❌ Error:", err.stack);
+  res.status(500).json({
+    success: false,
+    message: "Something went wrong!",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
+});
+
+// ✅ For Vercel serverless
+module.exports = app;
+
+// ✅ For local development
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+
+  const startServer = async () => {
+    await connectToDatabase();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌐 http://localhost:${PORT}`);
     });
-  } catch (error) {
-    console.error("❌ Failed to start server:", error.message);
-    process.exit(1);
-  }
-};
+  };
 
-startServer();
+  startServer();
+}
