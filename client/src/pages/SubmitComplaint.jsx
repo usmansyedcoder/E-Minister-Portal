@@ -66,12 +66,16 @@ const SubmitComplaint = () => {
   };
 
   // Update the handleSubmit function in SubmitComplaint.jsx
+  // Remove or comment out the API_URL variable
+  // const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+  // In handleSubmit, use just '/api' for the path
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/complaints`, formData);
+      const response = await axios.post("/api/complaints", formData);
       const trackingId = response.data.data.trackingId;
 
       toast.success(`✅ Complaint submitted successfully!`);
@@ -80,6 +84,7 @@ const SubmitComplaint = () => {
       // Navigate to status page with tracking ID
       navigate(`/complaint-status?tracking=${trackingId}`);
     } catch (error) {
+      console.error("Submission error:", error);
       toast.error(
         error.response?.data?.message || "Failed to submit complaint",
       );

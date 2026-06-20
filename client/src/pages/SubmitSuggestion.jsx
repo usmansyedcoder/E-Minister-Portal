@@ -64,20 +64,24 @@ const SubmitSuggestion = () => {
     });
   };
   // Update the handleSubmit function in SubmitSuggestion.jsx
+  // Remove or comment out the API_URL variable
+  // const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+  // In handleSubmit, use just '/api' for the path
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/suggestions`, formData);
+      const response = await axios.post("/api/suggestions", formData);
       const trackingId = response.data.data.trackingId;
 
       toast.success(`✅ Suggestion submitted successfully!`);
       toast.info(`📋 Your Tracking ID: ${trackingId}`);
 
-      // Navigate to status page with tracking ID
       navigate(`/complaint-status?tracking=${trackingId}`);
     } catch (error) {
+      console.error("Submission error:", error);
       toast.error(
         error.response?.data?.message || "Failed to submit suggestion",
       );

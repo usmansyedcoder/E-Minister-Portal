@@ -1,4 +1,7 @@
-import { useSearchParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 const ComplaintStatus = () => {
   const [searchParams] = useSearchParams();
@@ -9,7 +12,16 @@ const ComplaintStatus = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || "/api";
+  // Auto-search if tracking ID is provided in URL
+  useEffect(() => {
+    if (initialTracking) {
+      // Small delay to ensure component is mounted
+      const timer = setTimeout(() => {
+        handleSubmit(new Event("submit"));
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +37,7 @@ const ComplaintStatus = () => {
     try {
       // Try complaints first
       let response = await axios.get(
-        `${API_URL}/complaints/track/${trackingId.trim()}`,
+        `/api/complaints/track/${trackingId.trim()}`,
       );
 
       setResult({
@@ -38,7 +50,7 @@ const ComplaintStatus = () => {
         // Try suggestions
         try {
           const response = await axios.get(
-            `${API_URL}/suggestions/track/${trackingId.trim()}`,
+            `/api/suggestions/track/${trackingId.trim()}`,
           );
           setResult({
             type: "suggestion",
@@ -73,6 +85,7 @@ const ComplaintStatus = () => {
   };
 
   const formatDate = (date) => {
+    if (!date) return "N/A";
     return new Date(date).toLocaleDateString("en-PK", {
       year: "numeric",
       month: "long",
@@ -81,33 +94,24 @@ const ComplaintStatus = () => {
       minute: "2-digit",
     });
   };
-  // Add this function in ComplaintStatus.jsx
-  const copyTrackingId = (trackingId) => {
-    navigator.clipboard.writeText(trackingId);
-    toast.success("Tracking ID copied to clipboard!");
-  };
 
-  // Use it in the status result:
-  <div className="status-info">
-    <h4>{result.type === "complaint" ? "Complaint" : "Suggestion"} Status</h4>
-    <p>
-      Tracking ID: <strong>{result.data.trackingId}</strong>
-      <button
-        onClick={() => copyTrackingId(result.data.trackingId)}
-        style={{
-          marginLeft: "10px",
-          padding: "2px 10px",
-          fontSize: "12px",
-          background: "none",
-          border: "1px solid #ddd",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
-        📋 Copy
-      </button>
-    </p>
-  </div>;
+  const copyTrackingId = (trackingId) => {
+    navigator.clipboard
+      .writeText(trackingId)
+      .then(() => {
+        toast.success("Tracking ID copied to clipboard!");
+      })
+      .catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = trackingId;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        toast.success("Tracking ID copied to clipboard!");
+      });
+  };
 
   return (
     <div className="page-wrapper">
@@ -179,6 +183,27 @@ const ComplaintStatus = () => {
                   </h4>
                   <p>
                     Tracking ID: <strong>{result.data.trackingId}</strong>
+                    <button
+                      onClick={() => copyTrackingId(result.data.trackingId)}
+                      style={{
+                        marginLeft: "10px",
+                        padding: "2px 10px",
+                        fontSize: "12px",
+                        background: "none",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#f0f0f0";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "none";
+                      }}
+                    >
+                      📋 Copy
+                    </button>
                   </p>
                 </div>
                 <div
