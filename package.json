@@ -1,0 +1,10 @@
+{
+  "name": "e-minister-portal",
+  "version": "1.0.0",
+  "scripts": {
+    "vercel-build": "cd client && npm install && npm run build"
+  },
+  "dependencies": {
+    "mongoose": "^7.0.3"
+  }
+}

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Complaint = require("../server/models/Complaint");
 
 // MongoDB Connection
 let cachedDb = null;
@@ -52,7 +53,6 @@ module.exports = async (req, res) => {
 
       try {
         await connectToDatabase();
-        const Complaint = require("../models/Complaint");
         const complaint = await Complaint.create(req.body);
         console.log("✅ Complaint created:", complaint.trackingId);
         return res.status(201).json({ success: true, data: complaint });
@@ -74,7 +74,6 @@ module.exports = async (req, res) => {
     if (req.method === "GET") {
       try {
         await connectToDatabase();
-        const Complaint = require("../models/Complaint");
         const complaints = await Complaint.find().sort({ createdAt: -1 });
         return res.json({
           success: true,

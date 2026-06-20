@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Suggestion = require("../server/models/Suggestion");
 
 // MongoDB Connection
 let cachedDb = null;
@@ -52,7 +53,6 @@ module.exports = async (req, res) => {
 
       try {
         await connectToDatabase();
-        const Suggestion = require("../models/Suggestion");
         const suggestion = await Suggestion.create(req.body);
         console.log("✅ Suggestion created:", suggestion.trackingId);
         return res.status(201).json({ success: true, data: suggestion });
@@ -74,7 +74,6 @@ module.exports = async (req, res) => {
     if (req.method === "GET") {
       try {
         await connectToDatabase();
-        const Suggestion = require("../models/Suggestion");
         const suggestions = await Suggestion.find().sort({ createdAt: -1 });
         return res.json({
           success: true,
