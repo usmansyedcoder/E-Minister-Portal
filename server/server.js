@@ -8,11 +8,10 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS configuration
+// ✅ CORS configuration - MUST come before routes
 app.use(
   cors({
-    origin: true,
-    credentials: true,
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -20,55 +19,89 @@ app.use(
       "X-Requested-With",
       "Accept",
     ],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   }),
 );
 
-// ✅ Handle preflight requests
-app.options("*", cors());
+// ✅ Handle preflight requests explicitly
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept",
+  );
+  res.sendStatus(200);
+});
 
-// Connect to database (for serverless, don't block on connection)
-let isConnected = false;
+// ✅ Body parser middleware
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// ✅ Database connection for Vercel (cached)
+let cachedConnection = null;
 
 const connectToDatabase = async () => {
-  if (isConnected) return;
+  if (cachedConnection) {
+    console.log("📦 Using cached database connection");
+    return cachedConnection;
+  }
+
   try {
-    await connectDB();
-    isConnected = true;
+    console.log("🔄 Connecting to MongoDB...");
+    const conn = await connectDB();
+    cachedConnection = conn;
     console.log("✅ Database connected successfully");
+    return conn;
   } catch (error) {
     console.error("❌ Database connection error:", error);
+    throw error;
   }
 };
 
-// ✅ Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// ✅ Health check route
+// ✅ Health check route (for debugging)
 app.get("/api/health", (req, res) => {
   res.json({
-    status: "ok",
+    success: true,
     message: "E-Minister Portal API is running",
-    environment: process.env.NODE_ENV,
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
   });
 });
-
-// ✅ Routes
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/complaints", require("./routes/complaints"));
-app.use("/api/suggestions", require("./routes/suggestions"));
 
 // ✅ Root route
 app.get("/", (req, res) => {
   res.json({
+    success: true,
     message: "E-Minister Portal API is running",
-    environment: process.env.NODE_ENV,
-    cors: "enabled",
+    environment: process.env.NODE_ENV || "development",
+    endpoints: {
+      auth: "/api/auth",
+      complaints: "/api/complaints",
+      suggestions: "/api/suggestions",
+      health: "/api/health",
+    },
   });
 });
 
+// ✅ Import routes AFTER middleware
+const authRoutes = require("./routes/auth");
+const complaintRoutes = require("./routes/complaints");
+const suggestionRoutes = require("./routes/suggestions");
+
+// ✅ Use routes
+app.use("/api/auth", authRoutes);
+app.use("/api/complaints", complaintRoutes);
+app.use("/api/suggestions", suggestionRoutes);
+
 // ✅ 404 handler
 app.use((req, res) => {
+  console.log(`❌ 404: ${req.method} ${req.url} not found`);
   res.status(404).json({
     success: false,
     message: `Route ${req.method} ${req.url} not found`,
@@ -85,7 +118,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ✅ For Vercel serverless
+// ✅ For Vercel serverless - export app
 module.exports = app;
 
 // ✅ For local development
@@ -93,11 +126,23 @@ if (require.main === module) {
   const PORT = process.env.PORT || 5000;
 
   const startServer = async () => {
-    await connectToDatabase();
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 http://localhost:${PORT}`);
-    });
+    try {
+      await connectToDatabase();
+      app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`🌐 http://localhost:${PORT}`);
+        console.log(`📋 API endpoints:`);
+        console.log(`   - Health: http://localhost:${PORT}/api/health`);
+        console.log(`   - Auth: http://localhost:${PORT}/api/auth`);
+        console.log(`   - Complaints: http://localhost:${PORT}/api/complaints`);
+        console.log(
+          `   - Suggestions: http://localhost:${PORT}/api/suggestions`,
+        );
+      });
+    } catch (error) {
+      console.error("❌ Failed to start server:", error);
+      process.exit(1);
+    }
   };
 
   startServer();
