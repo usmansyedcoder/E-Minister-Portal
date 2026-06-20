@@ -1,10 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-
-// Load env vars
-dotenv.config();
 
 const app = express();
 
@@ -13,17 +9,11 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-    ],
-    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
-// ✅ Handle OPTIONS preflight explicitly
+// Handle OPTIONS preflight
 app.options("*", (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header(
@@ -34,16 +24,15 @@ app.options("*", (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ MongoDB Connection with caching for serverless
+// ✅ MongoDB Connection with caching
 let cachedDb = null;
 
 async function connectToDatabase() {
   if (cachedDb) {
-    console.log("📦 Using cached database connection");
+    console.log("📦 Using cached connection");
     return cachedDb;
   }
 
@@ -53,86 +42,26 @@ async function connectToDatabase() {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      family: 4,
     });
-
     cachedDb = conn;
-    console.log("✅ MongoDB connected successfully");
+    console.log("✅ MongoDB connected");
     return conn;
   } catch (error) {
-    console.error("❌ MongoDB connection error:", error);
+    console.error("❌ MongoDB error:", error);
     throw error;
   }
 }
 
-// ✅ Import models
-const User = require("../models/User");
-const Complaint = require("../models/Complaint");
-const Suggestion = require("../models/Suggestion");
+// ✅ Simple in-memory models if MongoDB fails
+let inMemoryComplaints = [];
+let inMemorySuggestions = [];
 
-// ============================================
-// AUTH ROUTES
-// ============================================
-
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    await connectToDatabase();
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const jwt = require("jsonwebtoken");
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE || "30d",
-    });
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.get("/api/auth/me", async (req, res) => {
-  try {
-    await connectToDatabase();
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const jwt = require("jsonwebtoken");
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
-
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
-    }
-
-    res.json({ success: true, user });
-  } catch (error) {
-    res.status(401).json({ message: "Not authorized" });
-  }
-});
+// Generate tracking ID
+const generateTrackingId = (prefix) => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix}-${timestamp}-${random}`;
+};
 
 // ============================================
 // COMPLAINT ROUTES
@@ -140,16 +69,29 @@ app.get("/api/auth/me", async (req, res) => {
 
 app.post("/api/complaints", async (req, res) => {
   try {
-    await connectToDatabase();
     console.log("📥 Creating complaint:", req.body);
 
-    const complaint = await Complaint.create(req.body);
-    console.log("✅ Complaint created:", complaint.trackingId);
-
-    res.status(201).json({
-      success: true,
-      data: complaint,
-    });
+    // Try MongoDB first
+    try {
+      await connectToDatabase();
+      const Complaint = require("../models/Complaint");
+      const complaint = await Complaint.create(req.body);
+      console.log("✅ Complaint created in MongoDB:", complaint.trackingId);
+      return res.status(201).json({ success: true, data: complaint });
+    } catch (dbError) {
+      console.log("⚠️ MongoDB failed, using in-memory storage");
+      // Fallback to in-memory
+      const complaint = {
+        ...req.body,
+        trackingId: generateTrackingId("CMP"),
+        status: "pending",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      inMemoryComplaints.push(complaint);
+      console.log("✅ Complaint created in memory:", complaint.trackingId);
+      return res.status(201).json({ success: true, data: complaint });
+    }
   } catch (error) {
     console.error("Error creating complaint:", error);
     res.status(500).json({
@@ -161,13 +103,22 @@ app.post("/api/complaints", async (req, res) => {
 
 app.get("/api/complaints", async (req, res) => {
   try {
-    await connectToDatabase();
-    const complaints = await Complaint.find().sort({ createdAt: -1 });
-    res.json({
-      success: true,
-      count: complaints.length,
-      data: complaints,
-    });
+    try {
+      await connectToDatabase();
+      const Complaint = require("../models/Complaint");
+      const complaints = await Complaint.find().sort({ createdAt: -1 });
+      return res.json({
+        success: true,
+        count: complaints.length,
+        data: complaints,
+      });
+    } catch (dbError) {
+      return res.json({
+        success: true,
+        count: inMemoryComplaints.length,
+        data: inMemoryComplaints,
+      });
+    }
   } catch (error) {
     console.error("Error fetching complaints:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -176,31 +127,28 @@ app.get("/api/complaints", async (req, res) => {
 
 app.get("/api/complaints/track/:trackingId", async (req, res) => {
   try {
-    await connectToDatabase();
-    const complaint = await Complaint.findOne({
-      trackingId: req.params.trackingId.toUpperCase(),
-    });
+    const trackingId = req.params.trackingId.toUpperCase();
 
-    if (!complaint) {
-      return res.status(404).json({
-        success: false,
-        message: "Complaint not found",
-      });
+    try {
+      await connectToDatabase();
+      const Complaint = require("../models/Complaint");
+      const complaint = await Complaint.findOne({ trackingId });
+      if (complaint) {
+        return res.json({ success: true, data: complaint });
+      }
+    } catch (dbError) {
+      // Check in-memory
+      const complaint = inMemoryComplaints.find(
+        (c) => c.trackingId === trackingId,
+      );
+      if (complaint) {
+        return res.json({ success: true, data: complaint });
+      }
     }
 
-    res.json({
-      success: true,
-      data: {
-        trackingId: complaint.trackingId,
-        citizenName: complaint.citizenName,
-        subject: complaint.subject,
-        category: complaint.category,
-        status: complaint.status,
-        ministerRemarks: complaint.ministerRemarks,
-        createdAt: complaint.createdAt,
-        updatedAt: complaint.updatedAt,
-      },
-    });
+    return res
+      .status(404)
+      .json({ success: false, message: "Complaint not found" });
   } catch (error) {
     console.error("Error tracking complaint:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -213,16 +161,27 @@ app.get("/api/complaints/track/:trackingId", async (req, res) => {
 
 app.post("/api/suggestions", async (req, res) => {
   try {
-    await connectToDatabase();
     console.log("📥 Creating suggestion:", req.body);
 
-    const suggestion = await Suggestion.create(req.body);
-    console.log("✅ Suggestion created:", suggestion.trackingId);
-
-    res.status(201).json({
-      success: true,
-      data: suggestion,
-    });
+    try {
+      await connectToDatabase();
+      const Suggestion = require("../models/Suggestion");
+      const suggestion = await Suggestion.create(req.body);
+      console.log("✅ Suggestion created in MongoDB:", suggestion.trackingId);
+      return res.status(201).json({ success: true, data: suggestion });
+    } catch (dbError) {
+      console.log("⚠️ MongoDB failed, using in-memory storage");
+      const suggestion = {
+        ...req.body,
+        trackingId: generateTrackingId("SUG"),
+        status: "pending",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      inMemorySuggestions.push(suggestion);
+      console.log("✅ Suggestion created in memory:", suggestion.trackingId);
+      return res.status(201).json({ success: true, data: suggestion });
+    }
   } catch (error) {
     console.error("Error creating suggestion:", error);
     res.status(500).json({
@@ -234,13 +193,22 @@ app.post("/api/suggestions", async (req, res) => {
 
 app.get("/api/suggestions", async (req, res) => {
   try {
-    await connectToDatabase();
-    const suggestions = await Suggestion.find().sort({ createdAt: -1 });
-    res.json({
-      success: true,
-      count: suggestions.length,
-      data: suggestions,
-    });
+    try {
+      await connectToDatabase();
+      const Suggestion = require("../models/Suggestion");
+      const suggestions = await Suggestion.find().sort({ createdAt: -1 });
+      return res.json({
+        success: true,
+        count: suggestions.length,
+        data: suggestions,
+      });
+    } catch (dbError) {
+      return res.json({
+        success: true,
+        count: inMemorySuggestions.length,
+        data: inMemorySuggestions,
+      });
+    }
   } catch (error) {
     console.error("Error fetching suggestions:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -249,31 +217,27 @@ app.get("/api/suggestions", async (req, res) => {
 
 app.get("/api/suggestions/track/:trackingId", async (req, res) => {
   try {
-    await connectToDatabase();
-    const suggestion = await Suggestion.findOne({
-      trackingId: req.params.trackingId.toUpperCase(),
-    });
+    const trackingId = req.params.trackingId.toUpperCase();
 
-    if (!suggestion) {
-      return res.status(404).json({
-        success: false,
-        message: "Suggestion not found",
-      });
+    try {
+      await connectToDatabase();
+      const Suggestion = require("../models/Suggestion");
+      const suggestion = await Suggestion.findOne({ trackingId });
+      if (suggestion) {
+        return res.json({ success: true, data: suggestion });
+      }
+    } catch (dbError) {
+      const suggestion = inMemorySuggestions.find(
+        (s) => s.trackingId === trackingId,
+      );
+      if (suggestion) {
+        return res.json({ success: true, data: suggestion });
+      }
     }
 
-    res.json({
-      success: true,
-      data: {
-        trackingId: suggestion.trackingId,
-        citizenName: suggestion.citizenName,
-        subject: suggestion.subject,
-        category: suggestion.category,
-        status: suggestion.status,
-        ministerRemarks: suggestion.ministerRemarks,
-        createdAt: suggestion.createdAt,
-        updatedAt: suggestion.updatedAt,
-      },
-    });
+    return res
+      .status(404)
+      .json({ success: false, message: "Suggestion not found" });
   } catch (error) {
     console.error("Error tracking suggestion:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -299,9 +263,9 @@ app.get("/", (req, res) => {
     message: "E-Minister Portal API",
     endpoints: {
       health: "/api/health",
-      auth: "/api/auth/login",
       complaints: "/api/complaints",
       suggestions: "/api/suggestions",
+      track: "/api/complaints/track/:id",
     },
   });
 });

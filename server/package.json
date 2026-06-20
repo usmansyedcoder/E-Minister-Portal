@@ -1,7 +1,6 @@
 {
   "name": "e-minister-portal-server",
   "version": "1.0.0",
-  "description": "E-Minister Portal API",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",

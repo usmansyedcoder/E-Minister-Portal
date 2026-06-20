@@ -76,8 +76,12 @@ const SubmitComplaint = () => {
     setLoading(true);
 
     try {
-      // ✅ Use relative path - no API_URL needed
-      const response = await axios.post("/api/complaints", formData);
+      // Use absolute URL in production, relative in development
+      const apiUrl = import.meta.env.PROD
+        ? "https://e-minister-portal.vercel.app/api/complaints" // Your production URL
+        : "/api/complaints";
+
+      const response = await axios.post(apiUrl, formData);
       const trackingId = response.data.data.trackingId;
 
       toast.success(`✅ Complaint submitted successfully!`);
